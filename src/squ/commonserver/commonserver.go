@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"squ/cmdexecstorage"
 	"squ/logger"
 	"squ/transport"
 	"sync"
@@ -20,7 +21,7 @@ const (
 	// answer error codes
 	AnswerCodeFormatError = 1
 	//
-	PauseGetCmd = 100 // ms
+	PauseGetCmd              = 100 // ms
 	execRequestChannelVolume = 1024 * 10
 )
 
@@ -112,11 +113,15 @@ func NewMethodMap() *MethodMap {
 
 type DataStreamManager struct {
 	execRequestChannel *chan transport.Command
+	returnedCmdChannel *chan transport.Command
+	PutBackHandler     cmdexecstorage.ReturnCommandHandler
 }
 
 func (manager *DataStreamManager) GetExecCmd() (bool, *transport.Command) {
 	// TODO: priority and suppotred methods
 	select {
+	case cmd := <-*(manager.returnedCmdChannel):
+		return false, &cmd
 	case cmd := <-*(manager.execRequestChannel):
 		return false, &cmd
 	case <-time.After(time.Millisecond * PauseGetCmd):
@@ -125,8 +130,18 @@ func (manager *DataStreamManager) GetExecCmd() (bool, *transport.Command) {
 }
 
 func NewDataStreamManager() *DataStreamManager {
-	ch := make(chan transport.Command, execRequestChannelVolume)
-	manager := DataStreamManager{execRequestChannel: &ch}
+	backChannel := make(chan transport.Command, execRequestChannelVolume)
+
+	backHandler := func(cmd *transport.Command, task string) {
+		backChannel <- (*cmd)
+		logger.Warn("Task %s returned with timeout, cmd: %s", task, cmd.String())
+	}
+
+	ch1 := make(chan transport.Command, execRequestChannelVolume)
+	manager := DataStreamManager{
+		execRequestChannel: &ch1,
+		returnedCmdChannel: &backChannel,
+		PutBackHandler:     backHandler}
 	return &manager
 }
 

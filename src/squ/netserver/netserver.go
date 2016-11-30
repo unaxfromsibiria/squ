@@ -3,6 +3,7 @@ package netserver
 import (
 	"fmt"
 	"net"
+	"squ/cmdexecstorage"
 	common "squ/commonserver"
 	executer "squ/executerserver"
 	"squ/logger"
@@ -29,6 +30,7 @@ type Server struct {
 	subSystems           []int
 	subSystemDoneChannel chan int
 	subSystemCallChannel chan int
+	cmdExecStorage *cmdexecstorage.CmdExecStorage
 }
 
 type ExternalSysMsg struct {
@@ -86,6 +88,11 @@ func socketListen(
 func (server *Server) Start() chan ExternalSysMsg {
 	provider := common.NewStateProvider()
 	dataStreamManager := common.NewDataStreamManager()
+	if (*server).cmdExecStorage == nil {
+		cmdStorage := cmdexecstorage.NewCmdExecStorage(dataStreamManager.PutBackHandler)
+		(*server).cmdExecStorage = &cmdStorage
+	}
+
 	outChannel := make(chan ExternalSysMsg, 1)
 
 	for _, socketTarget := range server.sockets {
@@ -113,6 +120,7 @@ func (server *Server) Start() chan ExternalSysMsg {
 
 func (server *Server) Stop() bool {
 	systemsDoneCount := 0
+	server.cmdExecStorage.Stop()
 	for systemsDoneCount < len((*server).subSystems) {
 		(*server).subSystemCallChannel <- SubSystemCallExit
 		logger.Info("exit command send to subsystem")

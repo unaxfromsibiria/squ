@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	common "squ/commonserver"
+	//"squ/cmdexecstorage"
 	"squ/helpers"
 	"squ/logger"
 	"squ/transport"
@@ -126,7 +127,8 @@ func CommandHandler(
 				answer = transport.PackCmd(cmd, uid)
 				logger.Debug("Execute task in %s for cmd: %s", uid, cmd.Method)
 				// wait result
-				
+				// runage := cmdexecstorage.NewCmdExecStorage(nil)
+				//TODO: runage.Push(hash, cmd, timeLimit)
 			}
 		}
 	}
