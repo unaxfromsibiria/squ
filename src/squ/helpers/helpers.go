@@ -15,7 +15,7 @@ const (
 	randPartSize           = 8
 	asyncDictCountParts    = 64
 	asyncDictCountPartsLim = asyncDictCountParts - 1
-	randIntLimit = 10
+	randIntLimit = 1000
 )
 
 type SysRandom struct {
@@ -67,7 +67,7 @@ func (sysRand *SysRandom) Select(src *[]string) string {
 
 // Simple yes/no answer (normal distribution)
 func (sysRand *SysRandom) Question() bool {
-	return sysRand.FromRangeInt(0, randIntLimit) > randIntLimit / 2
+	return sysRand.FromRangeInt(0, randIntLimit + 1) > randIntLimit / 2
 }
 
 func NewSystemRandom() *SysRandom {

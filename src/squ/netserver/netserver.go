@@ -89,8 +89,9 @@ func (server *Server) Start() chan ExternalSysMsg {
 	provider := common.NewStateProvider()
 	dataStreamManager := common.NewDataStreamManager()
 	if (*server).cmdExecStorage == nil {
-		cmdStorage := cmdexecstorage.NewCmdExecStorage(dataStreamManager.PutBackHandler)
-		(*server).cmdExecStorage = &cmdStorage
+		cmdStorage := cmdexecstorage.NewCmdExecStorage(
+			dataStreamManager.PutBackHandler, false)
+		(*server).cmdExecStorage = cmdStorage
 	}
 
 	outChannel := make(chan ExternalSysMsg, 1)
