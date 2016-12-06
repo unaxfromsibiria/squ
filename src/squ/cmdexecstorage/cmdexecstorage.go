@@ -238,19 +238,28 @@ var onceStorage *CmdExecStorage
 // rhandler - rollback handler (for processing comman after timeout event)
 // refresh - params used for testing, avoid using it
 func NewCmdExecStorage(rhandler ReturnCommandHandler, refresh bool) *CmdExecStorage {
+	var store *CmdExecStorage
 	if onceStorage != nil && !refresh {
-		return onceStorage
+		store = onceStorage
 	} else {
+		withProblem := rhandler == nil
+		if withProblem {
+			logger.Error("Empty handler for comand return back!")
+		}
 		result := CmdExecStorage{
 			returnHandler: rhandler,
-			active:        true,
+			active:        !withProblem,
 			exitChannel:   make(chan bool, 1),
 			cells:         make([]*cellMap, MapsCount)}
 		for index := 0; index < MapsCount; index++ {
 			result.cells[index] = newCellMap()
 		}
 		onceStorage = &result
-		go result.run()
-		return &result
+		if !withProblem {
+			go result.run()			
+		}
+		store = &result
 	}
+	logger.Debug("Store for executed command at %p", store)
+	return store
 }

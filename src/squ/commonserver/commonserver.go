@@ -20,6 +20,7 @@ const (
 const (
 	// answer error codes
 	AnswerCodeFormatError = 1
+	AnswerInternalError   = 2
 	//
 	PauseGetCmd              = 100 // ms
 	execRequestChannelVolume = 1024 * 10

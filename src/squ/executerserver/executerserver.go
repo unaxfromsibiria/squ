@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	common "squ/commonserver"
-	//"squ/cmdexecstorage"
+	"squ/cmdexecstorage"
 	"squ/helpers"
 	"squ/logger"
 	"squ/transport"
@@ -114,6 +114,8 @@ func CommandHandler(
 		}
 	case ResultMethodReturn:
 		{
+			//store := cmdexecstorage.NewCmdExecStorage(nil)
+			// free cell
 
 		}
 	case GetExecute:
@@ -124,11 +126,20 @@ func CommandHandler(
 			} else {
 				// get command and create task id
 				uid := helpers.NewSystemRandom().Uid()
-				answer = transport.PackCmd(cmd, uid)
 				logger.Debug("Execute task in %s for cmd: %s", uid, cmd.Method)
-				// wait result
-				// runage := cmdexecstorage.NewCmdExecStorage(nil)
-				//TODO: runage.Push(hash, cmd, timeLimit)
+				// timeout can be in cmd
+				timeout := helpers.FindTimeout(&(cmd.Params))
+				// use once ptr to this store
+				store := cmdexecstorage.NewCmdExecStorage(nil, false)
+				if store.Push(uid, cmd, timeout) {
+					answer = transport.PackCmd(cmd, uid)					
+				} else {
+					logger.Error("Wrong command store at %p", store)
+					answer = transport.NewErrorAnswer(
+						cmd.Id,
+						common.AnswerInternalError,
+						"Problem with command data storage")
+				}
 			}
 		}
 	}

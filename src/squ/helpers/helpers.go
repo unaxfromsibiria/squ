@@ -2,6 +2,7 @@ package helpers
 
 import (
 	sha "crypto/sha1"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -15,7 +16,9 @@ const (
 	randPartSize           = 8
 	asyncDictCountParts    = 64
 	asyncDictCountPartsLim = asyncDictCountParts - 1
-	randIntLimit = 1000
+	randIntLimit           = 1000
+	//
+	DefaultCmdExecuteTimeOut = 60
 )
 
 type SysRandom struct {
@@ -67,7 +70,7 @@ func (sysRand *SysRandom) Select(src *[]string) string {
 
 // Simple yes/no answer (normal distribution)
 func (sysRand *SysRandom) Question() bool {
-	return sysRand.FromRangeInt(0, randIntLimit + 1) > randIntLimit / 2
+	return sysRand.FromRangeInt(0, randIntLimit+1) > randIntLimit/2
 }
 
 func NewSystemRandom() *SysRandom {
@@ -80,3 +83,18 @@ func NewSystemRandom() *SysRandom {
 	return onceRand
 }
 
+type OnlyTimeOutParam struct {
+	Timeout float64 `json:"timeout"`
+}
+
+// Try to find timeout param in command or got default (return <int> ms.)
+func FindTimeout(param *string) int {
+	p := OnlyTimeOutParam{}
+	if json.Unmarshal([]byte(*param), &p) != nil {
+		p.Timeout = DefaultCmdExecuteTimeOut
+	}
+	if p.Timeout <= 0 {
+		p.Timeout = DefaultCmdExecuteTimeOut
+	}
+	return int(1000 * p.Timeout)
+}

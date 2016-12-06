@@ -97,3 +97,24 @@ func TestRandomQuestionEqualParts(t *testing.T) {
 		t.Error("failed")
 	}
 }
+
+
+func TestSimpleFindTimeout(t *testing.T) {
+	data1 := `{
+		"p1": 4,
+		"p2": 6,
+		"timeauth": 100,
+		"timeout": 20
+	}`
+	data2 := `{
+		"p1": 4,
+		"p2": 6,
+		"timeauth": 100
+	}`
+	value1 := helpers.FindTimeout(&data1)
+	value2 := helpers.FindTimeout(&data2)
+	t.Logf("Results: %d, %d", value1, value2)
+	if value1 != 20 * 1000 || value2 != helpers.DefaultCmdExecuteTimeOut * 1000 {
+		t.Error("incorrect result")
+	}
+}
