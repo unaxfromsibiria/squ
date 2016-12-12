@@ -4,10 +4,15 @@ import (
 	"math"
 	"os"
 	"squ/logger"
+	subsys "squ/subsysmanage"
 	"squ/transport"
 	"strconv"
 	"sync"
 	"time"
+)
+
+const (
+	defaultStoppingDelay = 25 //ms
 )
 
 // find max positive int
@@ -182,7 +187,7 @@ func (storage *CmdExecStorage) Push(hash string, cmd *transport.Command, timeLim
 }
 
 // Stop all activity and close channel
-func (storage *CmdExecStorage) Stop() {
+func (storage *CmdExecStorage) ForceStop() {
 	(*storage).exitChannel <- true
 	time.Sleep(time.Millisecond * time.Duration(ClearIterTimeout))
 }
@@ -197,7 +202,7 @@ func (storage *CmdExecStorage) Free(hash string) bool {
 // Volume of storage
 func (storage *CmdExecStorage) Volume() int {
 	var result int
-	for index := 0; index < MapsCount; index ++ {
+	for index := 0; index < MapsCount; index++ {
 		result += (*storage).cells[index].size()
 	}
 	return result
@@ -208,6 +213,7 @@ func (storage *CmdExecStorage) run() {
 	(*storage).active = true
 	active := true
 	index := 0
+	logger.Debug("Storage at %p started.", storage)
 	for active {
 		select {
 		case <-(*storage).exitChannel:
@@ -230,6 +236,7 @@ func (storage *CmdExecStorage) run() {
 	}
 	(*storage).active = false
 	close((*storage).exitChannel)
+	logger.Debug("Storage at %p stopped.", storage)
 }
 
 var onceStorage *CmdExecStorage
@@ -237,7 +244,10 @@ var onceStorage *CmdExecStorage
 // New storage for command with
 // rhandler - rollback handler (for processing comman after timeout event)
 // refresh - params used for testing, avoid using it
-func NewCmdExecStorage(rhandler ReturnCommandHandler, refresh bool) *CmdExecStorage {
+func NewCmdExecStorage(
+	rhandler ReturnCommandHandler,
+	refresh bool) *CmdExecStorage {
+	//
 	var store *CmdExecStorage
 	if onceStorage != nil && !refresh {
 		store = onceStorage
@@ -256,10 +266,41 @@ func NewCmdExecStorage(rhandler ReturnCommandHandler, refresh bool) *CmdExecStor
 		}
 		onceStorage = &result
 		if !withProblem {
-			go result.run()			
+			go result.run()
 		}
 		store = &result
 	}
 	logger.Debug("Store for executed command at %p", store)
 	return store
+}
+
+// subsys SubSystemSwitcher
+func (storage *CmdExecStorage) CallCommandService(commandCode int, doneChannel *chan subsys.SubSystemMsg) {
+	ssCode := storage.GetCode()
+	switch commandCode {
+	case subsys.SubSystemCommandCodeStop:
+		{
+			storage.ForceStop()
+			delay := time.Millisecond * time.Duration(ClearIterTimeout)
+			for (*storage).active {
+				time.Sleep(delay)
+			}
+			(*doneChannel) <- *(subsys.NewSubSystemMsg(ssCode, subsys.SubSystemCommandCodeStop))
+
+		}
+	case subsys.SubSystemCommandCodeStartService:
+		{
+			logger.Debug("Storage at %p has command for starting.", storage)
+			(*doneChannel) <- *(subsys.NewSubSystemMsg(ssCode, subsys.SubSystemCommandCodeStartService))
+		}
+	default:
+		{
+			logger.Warn("Storage at %p got unsupported command %d", storage, commandCode)
+		}
+
+	}
+}
+
+func (storage *CmdExecStorage) GetCode() int {
+	return subsys.SubSystemCommandStorage
 }

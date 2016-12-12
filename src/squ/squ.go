@@ -18,7 +18,7 @@ func main() {
 		signal.Notify(signalChannel, os.Interrupt)
 		signal.Notify(signalChannel, syscall.SIGTERM)
 		server := netserver.NewServer(squSettings)
-		outSignalsChannel := server.Start()
+		server.Start()
 
 		alive := true
 		for alive {
@@ -30,20 +30,10 @@ func main() {
 						alive = false
 					}
 				}
-			case msg := <-outSignalsChannel:
-				{
-					if len(msg.Msg) > 0 {
-						logger.Info("server: %s", msg.Msg)
-					}
-					if msg.Out {
-						alive = false
-					}
-				}
 			}
 		}
-		close(outSignalsChannel)
 		close(signalChannel)
-		for server.Stop() {
+		for !server.Stop() {
 			logger.Warn("server stopping, wait..")
 		}
 	}

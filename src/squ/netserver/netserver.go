@@ -9,43 +9,30 @@ import (
 	"squ/logger"
 	receiver "squ/receiverserver"
 	"squ/settings"
+	subsys "squ/subsysmanage"
 	"time"
 )
 
 const (
-	SubSystemCommandStorage = iota
-	SubSystemStatistic
-)
-
-const (
-	SubSystemCallExit = iota
-	SubSystemCallStatus
+	SubSystemStopTimeout = 15
 )
 
 type Server struct {
-	sockets              []common.SocketTarget
-	active               bool
-	keepAlivePeriod      int
-	connectionOptions    common.ConnectionOptions
-	subSystems           []int
-	subSystemDoneChannel chan int
-	subSystemCallChannel chan int
-	cmdExecStorage *cmdexecstorage.CmdExecStorage
-}
-
-type ExternalSysMsg struct {
-	Out bool
-	Msg string
+	subsys.SubSystemOwner
+	sockets           []common.SocketTarget
+	active            bool
+	keepAlivePeriod   int
+	connectionOptions common.ConnectionOptions
+	cmdExecStorage    *cmdexecstorage.CmdExecStorage
 }
 
 func NewServer(settings settings.SettingsProvider) *Server {
 	server := Server{
-		subSystems:        []int{SubSystemCommandStorage},
+		SubSystemOwner:    *(subsys.NewSubSystemOwner()),
 		sockets:           settings.GetSockets(),
 		connectionOptions: settings.GetConnectionsOptions(),
 		keepAlivePeriod:   settings.GetKeepAlivePeriod()}
-	server.subSystemDoneChannel = make(chan int, len(server.subSystems))
-	server.subSystemCallChannel = make(chan int, len(server.subSystems))
+
 	logger.Debug("Sockets in conf: %d", len(server.sockets))
 	return &server
 }
@@ -54,7 +41,6 @@ func socketListen(
 	sock string,
 	sockName string,
 	handler common.CmdHandler,
-	outMsgChannel *chan ExternalSysMsg,
 	provider *common.StateProvider,
 	dataStreamManager *common.DataStreamManager,
 	keepAlivePeriod time.Duration) {
@@ -85,16 +71,17 @@ func socketListen(
 	}
 }
 
-func (server *Server) Start() chan ExternalSysMsg {
+func (server *Server) Start() {
 	provider := common.NewStateProvider()
 	dataStreamManager := common.NewDataStreamManager()
 	if (*server).cmdExecStorage == nil {
 		cmdStorage := cmdexecstorage.NewCmdExecStorage(
 			dataStreamManager.PutBackHandler, false)
 		(*server).cmdExecStorage = cmdStorage
+		(*server).RegSubSystem(cmdStorage)
 	}
-
-	outChannel := make(chan ExternalSysMsg, 1)
+	defer (*server).SendToSubSystems(
+		subsys.SubSystemCommandCodeStartService, 1000*SubSystemStopTimeout)
 
 	for _, socketTarget := range server.sockets {
 		logger.Debug("conf => %s", socketTarget)
@@ -111,27 +98,18 @@ func (server *Server) Start() chan ExternalSysMsg {
 			socketTarget.GetSocket(),
 			socketTarget.GetTypeName(),
 			handler,
-			&outChannel,
 			provider,
 			dataStreamManager,
 			time.Duration(server.keepAlivePeriod))
 	}
-	return outChannel
 }
 
 func (server *Server) Stop() bool {
-	systemsDoneCount := 0
-	server.cmdExecStorage.Stop()
-	for systemsDoneCount < len((*server).subSystems) {
-		(*server).subSystemCallChannel <- SubSystemCallExit
-		logger.Info("exit command send to subsystem")
-		subSystemAnswer := <-(*server).subSystemDoneChannel
-		for _, systemCode := range (*server).subSystems {
-			if subSystemAnswer == systemCode {
-				systemsDoneCount++
-				logger.Info("subsystem %d ready for exit", subSystemAnswer)
-			}
-		}
+	logger.Info("Exit command send to subsystem, wait %d sec.", SubSystemStopTimeout)
+	if server.SendToSubSystems(subsys.SubSystemCommandCodeStop, 1000*SubSystemStopTimeout) {
+		return true
+	} else {
+		logger.Warn("Subsystem stoped incorrectly, timeout extended.")
+		return false
 	}
-	return true
 }

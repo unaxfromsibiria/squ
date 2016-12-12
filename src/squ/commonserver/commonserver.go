@@ -32,6 +32,10 @@ type SocketTarget struct {
 	Type int    `json:"type"`
 }
 
+type ServiceCloser interface {
+	Stop(systemOutCall, systemOutDone *chan int)
+}
+
 type ConnectionOptions struct {
 	BufferSize int
 }

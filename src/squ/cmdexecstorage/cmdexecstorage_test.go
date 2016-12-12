@@ -78,7 +78,7 @@ func TestCmdExecStorageSimpleCmdReturn(t *testing.T) {
 			t.Error("Unknown command returned!")
 		}
 	}
-	storage := cmdexecstorage.NewCmdExecStorage(backHandler, true)
+	storage := cmdexecstorage.NewCmdExecStorage(backHandler, true, 0)
 	t.Logf("Storage %p run.", storage)
 	time.Sleep(500 * time.Millisecond)
 	cmd := transport.NewCommand("test_1")
@@ -86,7 +86,7 @@ func TestCmdExecStorageSimpleCmdReturn(t *testing.T) {
 	t.Logf("cmd ptr: %s", cmdPtrStr)
 	storage.Push("1012936e40712e253d61e2334e7521d7c7ae9049", cmd, 600)
 	time.Sleep(700 * time.Millisecond)
-	storage.Stop()
+	storage.ForceStop()
 }
 
 func TestCmdExecStorageAsyncCmdReturn(t *testing.T) {
@@ -106,7 +106,7 @@ func TestCmdExecStorageAsyncCmdReturn(t *testing.T) {
 			stor.Push(id, cmd, timeout)
 		}
 	}
-	storage := cmdexecstorage.NewCmdExecStorage(backHandler, true)
+	storage := cmdexecstorage.NewCmdExecStorage(backHandler, true, 0)
 	groupSize := 100
 	groupCount := 3
 	t.Logf("Storage %p run.", storage)
@@ -124,7 +124,7 @@ func TestCmdExecStorageAsyncCmdReturn(t *testing.T) {
 	if storage.Volume() > 0 {
 		t.Error("Storage must be empty!")
 	}
-	storage.Stop()
+	storage.ForceStop()
 }
 
 func TestCmdExecStorageAsyncCmdFree(t *testing.T) {
@@ -190,5 +190,5 @@ func TestCmdExecStorageAsyncCmdFree(t *testing.T) {
 	if storage.Volume() > 0 {
 		t.Error("Storage must be empty!")
 	}
-	storage.Stop()
+	storage.ForceStop()
 }
