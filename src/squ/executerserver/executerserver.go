@@ -3,20 +3,24 @@ package executerserver
 import (
 	"encoding/json"
 	"fmt"
-	common "squ/commonserver"
+	"os"
 	"squ/cmdexecstorage"
+	common "squ/commonserver"
 	"squ/helpers"
 	"squ/logger"
 	"squ/transport"
+	"strings"
 )
 
 const (
 	RegMethodName      = "registration"
 	ResultMethodReturn = "result"
 	GetExecute         = "execute"
-	// test create uid
-	CreateUid = "uid"
+	SendCommand        = "send" // only in debug mode
+	CreateUid          = "uid"  // test create uid
 )
+
+var debugMode bool
 
 // service format types
 type RegParams struct {
@@ -26,6 +30,10 @@ type RegParams struct {
 // StateUpdater
 type MethodRegistrator struct {
 	methodNames []string
+}
+
+func init() {
+	debugMode = strings.ToUpper(os.Getenv("DEBUG")) == "TRUE"
 }
 
 func (registrator MethodRegistrator) Execute(provider *common.StateProvider) bool {
@@ -107,8 +115,13 @@ func CommandHandler(
 		}
 	case CreateUid:
 		{
-			rand := helpers.NewSystemRandom()
-			answer := transport.NewAnswer(command.Id, rand.Uid())
+			if debugMode {
+				rand := helpers.NewSystemRandom()
+				answer = transport.NewAnswer(command.Id, rand.Uid())
+			} else {
+				answer = transport.NewErrorAnswer(
+					command.Id, common.AnswerAccessError, "Supported only for debug mode.")
+			}
 			return answer, nil, false
 
 		}
@@ -118,11 +131,27 @@ func CommandHandler(
 			// free cell
 
 		}
+	case SendCommand:
+		{
+			// only for debug
+			if debugMode {
+				rand := helpers.NewSystemRandom()
+				answer = transport.NewAnswer(command.Id, rand.Uid())
+				dataStreamManager.AddCommand(cmd)
+			} else {
+				answer = transport.NewErrorAnswer(
+					command.Id, common.AnswerAccessError, "Supported only for debug mode.")
+			}
+			return answer, nil, false
+
+		}
 	case GetExecute:
 		{
 			if timeout, cmd := dataStreamManager.GetExecCmd(); timeout {
 				// no command
 				logger.Debug("no command for %s", about)
+				answer = transport.NewAnswer(command.Id, "{\"ok\": false}")
+				logger.Debug("answer: %s", answer.String())
 			} else {
 				// get command and create task id
 				uid := helpers.NewSystemRandom().Uid()
@@ -132,7 +161,7 @@ func CommandHandler(
 				// use once ptr to this store
 				store := cmdexecstorage.NewCmdExecStorage(nil, false)
 				if store.Push(uid, cmd, timeout) {
-					answer = transport.PackCmd(cmd, uid)					
+					answer = transport.PackCmd(cmd, uid)
 				} else {
 					logger.Error("Wrong command store at %p", store)
 					answer = transport.NewErrorAnswer(

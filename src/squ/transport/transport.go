@@ -41,8 +41,8 @@ type Command struct {
 func NewCommand(method string) *Command {
 	return &Command{
 		Jsonrpc: JSONRpcVersion,
-		Method: method,
-		Params: "{}"}
+		Method:  method,
+		Params:  "{}"}
 }
 
 func (cmd *Command) Dump() (*string, error) {
@@ -92,6 +92,10 @@ type Answer struct {
 	Error ErrorDescription `json:"error"`
 }
 
+func (answer Answer) String() string {
+	return fmt.Sprintf("Answer(id=%d)", answer.Id)
+}
+
 func (answer *Answer) DataDump() *[]byte {
 	var result *[]byte
 	if (*answer).Error.Exists() {
@@ -134,7 +138,6 @@ type TaskCommand struct {
 	Task string `json:"task"`
 }
 
-
 /// Answer constructor from command
 func PackCmd(cmd *Command, uid string) *Answer {
 	result := Answer{
@@ -144,7 +147,7 @@ func PackCmd(cmd *Command, uid string) *Answer {
 		result.Result = string(data)
 	} else {
 		result.Error = ErrorDescription{
-			Code: ErrCodeProblemDumpJson,
+			Code:    ErrCodeProblemDumpJson,
 			Message: fmt.Sprint("Problem with task command: %s", err)}
 	}
 	return &result

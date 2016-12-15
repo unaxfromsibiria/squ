@@ -21,6 +21,7 @@ const (
 	// answer error codes
 	AnswerCodeFormatError = 1
 	AnswerInternalError   = 2
+	AnswerAccessError     = 3
 	//
 	PauseGetCmd              = 100 // ms
 	execRequestChannelVolume = 1024 * 10
@@ -120,6 +121,10 @@ type DataStreamManager struct {
 	execRequestChannel *chan transport.Command
 	returnedCmdChannel *chan transport.Command
 	PutBackHandler     cmdexecstorage.ReturnCommandHandler
+}
+
+func (manager DataStreamManager) AddCommand(cmd *transport.Command) {
+	*(manager.execRequestChannel) <- *cmd
 }
 
 func (manager *DataStreamManager) GetExecCmd() (bool, *transport.Command) {
@@ -228,8 +233,7 @@ func NetHandler(
 			sendAnswer = nil
 			if cmd, err := transport.ParseCommand(&lineData); err == nil {
 				logger.Debug("cmd: %s => %s", about, cmd)
-				answer, stateUpdater, hasChanges := cmdHandler(
-					about, cmd, dataStreamManager)
+				answer, stateUpdater, hasChanges := cmdHandler(about, cmd, dataStreamManager)
 				sendAnswer = answer
 				if hasChanges {
 					stateProvider.UpdateStateForward(stateUpdater)
